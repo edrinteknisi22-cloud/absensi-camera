@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Kamera Absensi</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#111;color:#fff;font-family:Arial,sans-serif}
+.wrap{max-width:520px;margin:auto;padding:16px}
+h1{font-size:22px;margin:4px 0 12px}
+.camera{position:relative;background:#000;border-radius:18px;overflow:hidden}
+video{display:block;width:100%;aspect-ratio:3/4;object-fit:cover}
+canvas{display:none}
+#preview{display:none;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:18px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+button{width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:700}
+.primary{background:#fff;color:#111}
+.secondary{background:#333;color:#fff}
+.msg{font-size:13px;color:#bbb;min-height:40px;margin:12px 2px}
+.ok{color:#7CFC90}
+.err{color:#ff8f8f}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📷 Foto Selfie Absensi</h1>
+
+  <div class="camera">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <img id="preview" alt="Preview selfie">
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="takeBtn" onclick="takePhoto()">AMBIL FOTO</button>
+    <button class="secondary" id="retakeBtn" onclick="startCamera()" style="display:none">ULANGI</button>
+  </div>
+
+  <p id="msg" class="msg">Meminta akses kamera depan...</p>
+</div>
+
+<script>
+let stream = null;
+
+async function startCamera(){
+  stopCamera();
+
+  const video = document.getElementById('video');
+  const preview = document.getElementById('preview');
+  const msg = document.getElementById('msg');
+  const takeBtn = document.getElementById('takeBtn');
+  const retakeBtn = document.getElementById('retakeBtn');
+
+  preview.style.display='none';
+  video.style.display='block';
+  takeBtn.style.display='block';
+  retakeBtn.style.display='none';
+
+  if(!window.isSecureContext){
+    msg.className='msg err';
+    msg.textContent='Halaman kamera harus dibuka melalui HTTPS.';
+    return;
+  }
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    msg.className='msg err';
+    msg.textContent='Browser ini tidak mendukung kamera langsung. Gunakan Chrome Android.';
+    return;
+  }
+
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{
+        facingMode:{ideal:'user'},
+        width:{ideal:1280},
+        height:{ideal:720}
+      },
+      audio:false
+    });
+
+    video.srcObject = stream;
+    await video.play();
+
+    msg.className='msg ok';
+    msg.textContent='Kamera depan aktif. Arahkan wajah ke kamera lalu tekan AMBIL FOTO.';
+
+  }catch(e){
+    msg.className='msg err';
+
+    if(e.name === 'NotAllowedError'){
+      msg.textContent='Akses kamera ditolak. Di Chrome: Pengaturan situs → Kamera → Izinkan, lalu buka halaman ini kembali.';
+    }else if(e.name === 'NotFoundError'){
+      msg.textContent='Kamera tidak ditemukan pada perangkat.';
+    }else if(e.name === 'NotReadableError'){
+      msg.textContent='Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera lalu coba lagi.';
+    }else{
+      msg.textContent='Kamera gagal: '+e.name+' — '+e.message;
+    }
+  }
+}
+
+function takePhoto(){
+  const video=document.getElementById('video');
+  const canvas=document.getElementById('canvas');
+
+  if(!stream || !video.videoWidth){
+    document.getElementById('msg').className='msg err';
+    document.getElementById('msg').textContent='Kamera belum siap.';
+    return;
+  }
+
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+  const photo=canvas.toDataURL('image/jpeg',0.82);
+
+  document.getElementById('preview').src=photo;
+  document.getElementById('preview').style.display='block';
+  video.style.display='none';
+
+  document.getElementById('takeBtn').style.display='none';
+  document.getElementById('retakeBtn').style.display='block';
+
+  document.getElementById('msg').className='msg ok';
+  document.getElementById('msg').textContent='Foto berhasil. Mengirim foto ke halaman absensi...';
+
+  stopCamera();
+
+  // Mengirim foto kembali ke halaman absensi yang membuka jendela ini.
+  if(window.opener && !window.opener.closed){
+    window.opener.postMessage({
+      type:'ABSENSI_PHOTO',
+      photo:photo
+    }, '*');
+
+    setTimeout(()=>window.close(), 500);
+  }else{
+    document.getElementById('msg').textContent='Foto siap, tetapi halaman absensi asal tidak ditemukan.';
+  }
+}
+
+function stopCamera(){
+  if(stream){
+    stream.getTracks().forEach(track=>track.stop());
+    stream=null;
+  }
+}
+
+window.addEventListener('beforeunload', stopCamera);
+
+startCamera();
+</script>
+</body>
+</html>
