@@ -3,171 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-
 <title>Kamera Absensi</title>
-
 <style>
-*{
-  box-sizing:border-box;
-}
-
-body{
-  margin:0;
-  background:#111;
-  color:#fff;
-  font-family:Arial,sans-serif;
-}
-
-.wrap{
-  max-width:520px;
-  margin:auto;
-  padding:16px;
-}
-
-h1{
-  font-size:22px;
-  margin:4px 0 12px;
-}
-
-.camera{
-  position:relative;
-  background:#000;
-  border-radius:18px;
-  overflow:hidden;
-}
-
-video{
-  display:block;
-  width:100%;
-  aspect-ratio:3/4;
-  object-fit:cover;
-  background:#000;
-}
-
-canvas{
-  display:none;
-}
-
-#preview{
-  display:none;
-  width:100%;
-  aspect-ratio:3/4;
-  object-fit:cover;
-  border-radius:18px;
-  background:#000;
-}
-
-.controls{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-top:12px;
-}
-
-button{
-  width:100%;
-  padding:14px;
-  border:0;
-  border-radius:12px;
-  font-size:16px;
-  font-weight:700;
-}
-
-.primary{
-  background:#fff;
-  color:#111;
-}
-
-.secondary{
-  background:#333;
-  color:#fff;
-}
-
-.msg{
-  font-size:13px;
-  color:#bbb;
-  min-height:40px;
-  margin:12px 2px;
-  line-height:1.5;
-}
-
-.ok{
-  color:#7CFC90;
-}
-
-.err{
-  color:#ff8f8f;
-}
-
-.info{
-  color:#8ecbff;
-}
+*{box-sizing:border-box}
+body{margin:0;background:#111;color:#fff;font-family:Arial,sans-serif}
+.wrap{max-width:520px;margin:auto;padding:16px}
+h1{font-size:22px;margin:4px 0 12px}
+.camera{position:relative;background:#000;border-radius:18px;overflow:hidden}
+video{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;transform:scaleX(-1)}
+canvas{display:none}
+#preview{display:none;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:18px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+button{width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:700}
+.primary{background:#fff;color:#111}
+.secondary{background:#333;color:#fff}
+.msg{font-size:13px;color:#bbb;min-height:40px;margin:12px 2px}
+.ok{color:#7CFC90}
+.err{color:#ff8f8f}
 </style>
 </head>
-
 <body>
-
 <div class="wrap">
-
   <h1>📷 Foto Selfie Absensi</h1>
 
   <div class="camera">
-
-    <video
-      id="video"
-      autoplay
-      playsinline
-      muted
-    ></video>
-
+    <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
-
-    <img
-      id="preview"
-      alt="Preview selfie"
-    >
-
+    <img id="preview" alt="Preview selfie">
   </div>
 
   <div class="controls">
-
-    <button
-      class="primary"
-      id="takeBtn"
-      onclick="takePhoto()"
-    >
-      AMBIL FOTO
-    </button>
-
-    <button
-      class="secondary"
-      id="retakeBtn"
-      onclick="startCamera()"
-      style="display:none"
-    >
-      ULANGI
-    </button>
-
+    <button class="primary" id="takeBtn" onclick="takePhoto()">AMBIL FOTO</button>
+    <button class="secondary" id="retakeBtn" onclick="startCamera()" style="display:none">ULANGI</button>
   </div>
 
-  <p id="msg" class="msg">
-    Meminta akses kamera depan...
-  </p>
-
+  <p id="msg" class="msg">Meminta akses kamera depan...</p>
 </div>
 
-
 <script>
-
 let stream = null;
 
-
-/* =========================================================
-   START CAMERA
-========================================================= */
-
 async function startCamera(){
-
   stopCamera();
 
   const video = document.getElementById('video');
@@ -176,424 +52,112 @@ async function startCamera(){
   const takeBtn = document.getElementById('takeBtn');
   const retakeBtn = document.getElementById('retakeBtn');
 
-  preview.style.display = 'none';
-
-  video.style.display = 'block';
-
-  takeBtn.style.display = 'block';
-
-  retakeBtn.style.display = 'none';
-
-
-  /* HTTPS CHECK */
+  preview.style.display='none';
+  video.style.display='block';
+  takeBtn.style.display='block';
+  retakeBtn.style.display='none';
 
   if(!window.isSecureContext){
-
-    msg.className = 'msg err';
-
-    msg.textContent =
-      'Halaman kamera harus dibuka melalui HTTPS.';
-
+    msg.className='msg err';
+    msg.textContent='Halaman kamera harus dibuka melalui HTTPS.';
     return;
   }
 
-
-  /* CAMERA SUPPORT CHECK */
-
-  if(
-    !navigator.mediaDevices ||
-    !navigator.mediaDevices.getUserMedia
-  ){
-
-    msg.className = 'msg err';
-
-    msg.textContent =
-      'Browser ini tidak mendukung kamera langsung. Gunakan Chrome Android.';
-
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    msg.className='msg err';
+    msg.textContent='Browser ini tidak mendukung kamera langsung. Gunakan Chrome Android.';
     return;
   }
-
 
   try{
-
-    /*
-      REQUEST KAMERA DEPAN FULL HD
-
-      1920x1080 = Full HD
-      ideal = browser mencoba mendapatkan resolusi ini,
-      tetapi tidak gagal jika kamera tidak mendukungnya.
-    */
-
-    const constraints = {
-
+    stream = await navigator.mediaDevices.getUserMedia({
       video:{
-
-        facingMode:{
-          ideal:'user'
-        },
-
-        width:{
-          ideal:1920,
-          max:1920
-        },
-
-        height:{
-          ideal:1080,
-          max:1080
-        },
-
-        frameRate:{
-          ideal:30,
-          max:30
-        }
-
+        facingMode:{ideal:'user'},
+        width:{ideal:1920,max:1920},
+        height:{ideal:1080,max:1080},
+        frameRate:{ideal:30,max:30}
       },
-
       audio:false
-
-    };
-
-
-    stream =
-      await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
-
+    });
 
     video.srcObject = stream;
-
-
     await video.play();
 
-
-    /*
-      Ambil setting kamera sebenarnya.
-      Resolusi yang diberikan kamera bisa berbeda
-      dari resolusi yang diminta.
-    */
-
-    const track =
-      stream.getVideoTracks()[0];
-
-    const settings =
-      track.getSettings();
-
-
-    const actualWidth =
-      settings.width || video.videoWidth;
-
-    const actualHeight =
-      settings.height || video.videoHeight;
-
-    const actualFPS =
-      settings.frameRate
-        ? Math.round(settings.frameRate)
-        : null;
-
-
-    msg.className = 'msg ok';
-
-
-    if(actualFPS){
-
-      msg.textContent =
-        'Kamera depan aktif • ' +
-        actualWidth + '×' +
-        actualHeight +
-        ' • ' +
-        actualFPS +
-        ' FPS. Arahkan wajah ke kamera lalu tekan AMBIL FOTO.';
-
-    }else{
-
-      msg.textContent =
-        'Kamera depan aktif • ' +
-        actualWidth + '×' +
-        actualHeight +
-        '. Arahkan wajah ke kamera lalu tekan AMBIL FOTO.';
-
-    }
-
+    msg.className='msg ok';
+    msg.textContent='Kamera depan aktif. Arahkan wajah ke kamera lalu tekan AMBIL FOTO.';
 
   }catch(e){
-
-    console.error(e);
-
-    msg.className = 'msg err';
-
+    msg.className='msg err';
 
     if(e.name === 'NotAllowedError'){
-
-      msg.textContent =
-        'Akses kamera ditolak. Di Chrome: Pengaturan situs → Kamera → Izinkan, lalu buka halaman ini kembali.';
-
+      msg.textContent='Akses kamera ditolak. Di Chrome: Pengaturan situs → Kamera → Izinkan, lalu buka halaman ini kembali.';
     }else if(e.name === 'NotFoundError'){
-
-      msg.textContent =
-        'Kamera tidak ditemukan pada perangkat.';
-
+      msg.textContent='Kamera tidak ditemukan pada perangkat.';
     }else if(e.name === 'NotReadableError'){
-
-      msg.textContent =
-        'Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera lalu coba lagi.';
-
-    }else if(e.name === 'OverconstrainedError'){
-
-      msg.textContent =
-        'Resolusi kamera terlalu tinggi untuk perangkat ini. Silakan tekan ULANGI.';
-
+      msg.textContent='Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera lalu coba lagi.';
     }else{
-
-      msg.textContent =
-        'Kamera gagal: ' +
-        e.name +
-        ' — ' +
-        e.message;
+      msg.textContent='Kamera gagal: '+e.name+' — '+e.message;
     }
-
   }
-
 }
 
-
-/* =========================================================
-   TAKE PHOTO
-========================================================= */
-
 function takePhoto(){
+  const video=document.getElementById('video');
+  const canvas=document.getElementById('canvas');
 
-  const video =
-    document.getElementById('video');
-
-  const canvas =
-    document.getElementById('canvas');
-
-  const preview =
-    document.getElementById('preview');
-
-  const msg =
-    document.getElementById('msg');
-
-
-  if(
-    !stream ||
-    !video.videoWidth ||
-    !video.videoHeight
-  ){
-
-    msg.className = 'msg err';
-
-    msg.textContent =
-      'Kamera belum siap. Tunggu beberapa detik lalu coba lagi.';
-
+  if(!stream || !video.videoWidth){
+    document.getElementById('msg').className='msg err';
+    document.getElementById('msg').textContent='Kamera belum siap.';
     return;
   }
 
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
 
-  /*
-    PENTING:
+  const ctx=canvas.getContext('2d');
+  ctx.save();
+  ctx.translate(canvas.width,0);
+  ctx.scale(-1,1);
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  ctx.restore();
 
-    Gunakan resolusi ASLI dari stream kamera.
-    Jangan memakai ukuran CSS 3:4.
+  const photo=canvas.toDataURL('image/jpeg',0.92);
 
-    Contoh:
-    video.videoWidth  = 1920
-    video.videoHeight = 1080
+  document.getElementById('preview').src=photo;
+  document.getElementById('preview').style.display='block';
+  video.style.display='none';
 
-    Maka foto disimpan pada 1920×1080.
-  */
+  document.getElementById('takeBtn').style.display='none';
+  document.getElementById('retakeBtn').style.display='block';
 
-  const width =
-    video.videoWidth;
-
-  const height =
-    video.videoHeight;
-
-
-  canvas.width = width;
-  canvas.height = height;
-
-
-  const ctx =
-    canvas.getContext(
-      '2d',
-      {
-        alpha:false
-      }
-    );
-
-
-  /*
-    Kualitas interpolasi tinggi.
-    Berguna jika browser melakukan scaling.
-  */
-
-  if('imageSmoothingQuality' in ctx){
-
-    ctx.imageSmoothingEnabled = true;
-
-    ctx.imageSmoothingQuality = 'high';
-
-  }
-
-
-  /*
-    Ambil frame kamera.
-  */
-
-  ctx.drawImage(
-    video,
-    0,
-    0,
-    width,
-    height
-  );
-
-
-  /*
-    JPEG QUALITY 92%.
-
-    Sebelumnya:
-    0.82
-
-    Sekarang:
-    0.92
-
-    Hasil lebih tajam dengan kompresi lebih rendah.
-  */
-
-  const photo =
-    canvas.toDataURL(
-      'image/jpeg',
-      0.92
-    );
-
-
-  /*
-    Preview foto.
-  */
-
-  preview.src = photo;
-
-  preview.style.display = 'block';
-
-  video.style.display = 'none';
-
-
-  /*
-    Ubah tombol.
-  */
-
-  document.getElementById(
-    'takeBtn'
-  ).style.display = 'none';
-
-
-  document.getElementById(
-    'retakeBtn'
-  ).style.display = 'block';
-
-
-  msg.className = 'msg ok';
-
-  msg.textContent =
-    'Foto berhasil. Mengirim foto ke halaman absensi...';
-
-
-  /*
-    Matikan kamera setelah foto.
-  */
+  document.getElementById('msg').className='msg ok';
+  document.getElementById('msg').textContent='Foto berhasil. Mengirim foto ke halaman absensi...';
 
   stopCamera();
 
+  // Mengirim foto kembali ke halaman absensi yang membuka jendela ini.
+  if(window.opener && !window.opener.closed){
+    window.opener.postMessage({
+      type:'ABSENSI_PHOTO',
+      photo:photo
+    }, '*');
 
-  /*
-    KIRIM FOTO KE INDEX.HTML
-
-    BAGIAN INI JANGAN DIUBAH
-    karena Index.html menunggu:
-
-    type: 'ABSENSI_PHOTO'
-  */
-
-  if(
-    window.opener &&
-    !window.opener.closed
-  ){
-
-    window.opener.postMessage(
-
-      {
-        type:'ABSENSI_PHOTO',
-        photo:photo
-      },
-
-      '*'
-
-    );
-
-
-    /*
-      Beri waktu agar postMessage
-      selesai diterima Index.html.
-    */
-
-    setTimeout(
-      ()=>{
-        window.close();
-      },
-      500
-    );
-
-
+    setTimeout(()=>window.close(), 500);
   }else{
-
-    msg.textContent =
-      'Foto siap, tetapi halaman absensi asal tidak ditemukan.';
-
+    document.getElementById('msg').textContent='Foto siap, tetapi halaman absensi asal tidak ditemukan.';
   }
-
 }
-
-
-/* =========================================================
-   STOP CAMERA
-========================================================= */
 
 function stopCamera(){
-
   if(stream){
-
-    stream
-      .getTracks()
-      .forEach(
-        track => track.stop()
-      );
-
-    stream = null;
-
+    stream.getTracks().forEach(track=>track.stop());
+    stream=null;
   }
-
 }
 
-
-/* =========================================================
-   CLEANUP
-========================================================= */
-
-window.addEventListener(
-  'beforeunload',
-  stopCamera
-);
-
-
-/* =========================================================
-   START
-========================================================= */
+window.addEventListener('beforeunload', stopCamera);
 
 startCamera();
-
 </script>
-
 </body>
 </html>
